@@ -1,88 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Floating Speech Notes</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 0; padding: 10px;
-    background: #222;
-    color: #eee;
-    user-select: none;
-    overflow: hidden;
-  }
-
-  #container {
-    width: 320px;
-    height: 400px;
-    background: #333;
-    border-radius: 8px;
-    box-shadow: 0 0 12px #0008;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-  }
-
-  #header {
-    background: #444;
-    padding: 8px;
-    cursor: move;
-    border-radius: 8px 8px 0 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  #header h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    user-select: none;
-  }
-
-  #buttons {
-    display: flex;
-    gap: 6px;
-  }
-
-  button {
-    background: #666;
-    border: none;
-    color: #eee;
-    padding: 6px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    user-select: none;
-    transition: background 0.2s ease;
-  }
-
-  button:hover {
-    background: #888;
-  }
-
-  #notes {
-    flex: 1;
-    padding: 12px;
-    margin: 8px;
-    background: #111;
-    border-radius: 6px;
-    color: #eee;
-    font-size: 1rem;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    outline: none;
-  }
-
-  #footer {
-    padding: 6px 8px;
-    font-size: 0.8rem;
-    color: #aaa;
-    text-align: center;
-    user-select: none;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Floating Speech Notes</title>
+  <style>
+    /* [Your same CSS here - no changes needed] */
+  </style>
 </head>
 <body>
 
@@ -100,7 +24,6 @@
 </div>
 
 <script>
-  // Draggable logic
   const container = document.getElementById('container');
   const header = document.getElementById('header');
   let isDragging = false, offsetX, offsetY;
@@ -125,7 +48,6 @@
     }
   });
 
-  // Speech recognition setup
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
@@ -143,53 +65,49 @@
 
     let isListening = false;
 
-    // Load saved notes from localStorage
+    // Load saved notes
     notes.textContent = localStorage.getItem('floatingSpeechNotes') || '';
 
-    // Save notes to localStorage on change
     notes.addEventListener('input', () => {
       localStorage.setItem('floatingSpeechNotes', notes.textContent);
     });
 
+    let previousFinal = '';
+
     recognition.onresult = (event) => {
-  let interimTranscript = '';
-  let finalTranscript = '';
+      let finalTranscript = '';
+      let interimTranscript = '';
 
-  for (let i = event.resultIndex; i < event.results.length; i++) {
-    if (event.results[i].isFinal) {
-      finalTranscript += event.results[i][0].transcript + ' ';
-    } else {
-      interimTranscript += event.results[i][0].transcript;
-    }
-  }
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript.trim();
+        if (event.results[i].isFinal) {
+          // Avoid repeating the same final transcript
+          if (transcript !== previousFinal) {
+            finalTranscript += transcript + ' ';
+            previousFinal = transcript;
+          }
+        } else {
+          interimTranscript += transcript + ' ';
+        }
+      }
 
-  // Show the final transcript appended to your notes
-  // and show the interim transcript somewhere if you want live preview
-
-  notes.textContent = (notes.textContent || '') + finalTranscript;
-
-  // Optionally, you can show interim transcript elsewhere or ignore it
-  // e.g. livePreviewElement.textContent = interimTranscript;
-
-  // Save to localStorage
-  localStorage.setItem('floatingSpeechNotes', notes.textContent);
-
-  // Scroll down
-  notes.scrollTop = notes.scrollHeight;
-};
-
+      if (finalTranscript) {
+        notes.textContent += finalTranscript;
+        notes.scrollTop = notes.scrollHeight;
+        localStorage.setItem('floatingSpeechNotes', notes.textContent);
+      }
+    };
 
     recognition.onerror = (e) => {
       console.error('Speech recognition error:', e.error);
-      if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-        alert('Permission denied for microphone.');
+      if (['not-allowed', 'permission-denied'].includes(e.error)) {
+        alert('Microphone permission denied.');
         if (isListening) toggleListening();
       }
     };
 
     recognition.onend = () => {
-      // Automatically restart if listening
-      if (isListening) recognition.start();
+      if (isListening) recognition.start(); // resume only if active
     };
 
     function toggleListening() {
@@ -210,6 +128,7 @@
       if (confirm('Clear all notes?')) {
         notes.textContent = '';
         localStorage.removeItem('floatingSpeechNotes');
+        previousFinal = '';
       }
     });
 
