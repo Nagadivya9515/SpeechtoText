@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Floating Speech Notes</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0; padding: 10px;
+    background: #222;
+    color: #eee;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  #container {
+    width: 320px;
+    height: 400px;
+    background: #333;
+    border-radius: 8px;
+    box-shadow: 0 0 12px #0008;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  #header {
+    background: #444;
+    padding: 8px;
+    cursor: move;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  #header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    user-select: none;
+  }
+
+  #buttons {
+    display: flex;
+    gap: 6px;
+  }
+
+  button {
+    background: #666;
+    border: none;
+    color: #eee;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    user-select: none;
+    transition: background 0.2s ease;
+  }
+
+  button:hover {
+    background: #888;
+  }
+
+  #notes {
+    flex: 1;
+    padding: 12px;
+    margin: 8px;
+    background: #111;
+    border-radius: 6px;
+    color: #eee;
+    font-size: 1rem;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    outline: none;
+  }
+
+  #footer {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    color: #aaa;
+    text-align: center;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="container">
+  <div id="header">
+    <h3>🎙️ Floating Speech Notes</h3>
+    <div id="buttons">
+      <button id="startBtn">Start</button>
+      <button id="clearBtn">Clear</button>
+      <button id="closeBtn">×</button>
+    </div>
+  </div>
+  <div id="notes" contenteditable="true" spellcheck="false" aria-label="Speech to text notes"></div>
+  <div id="footer">Double-click header to toggle dragging</div>
+</div>
+
+<script>
+  // Draggable logic
+  const container = document.getElementById('container');
+  const header = document.getElementById('header');
+  let isDragging = false, offsetX, offsetY;
+
+  header.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    offsetX = e.clientX - container.offsetLeft;
+    offsetY = e.clientY - container.offsetTop;
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+    document.body.style.userSelect = 'auto';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      container.style.left = (e.clientX - offsetX) + 'px';
+      container.style.top = (e.clientY - offsetY) + 'px';
+      container.style.position = 'fixed';
+    }
+  });
+
+  // Speech recognition setup
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    alert('Your browser does not support Speech Recognition API.');
+  } else {
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    const startBtn = document.getElementById('startBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const notes = document.getElementById('notes');
+
+    let isListening = false;
+
+    // Load saved notes from localStorage
+    notes.textContent = localStorage.getItem('floatingSpeechNotes') || '';
+
+    // Save notes to localStorage on change
+    notes.addEventListener('input', () => {
+      localStorage.setItem('floatingSpeechNotes', notes.textContent);
+    });
+
+    recognition.onresult = (event) => {
+  let interimTranscript = '';
+  let finalTranscript = '';
+
+  for (let i = event.resultIndex; i < event.results.length; i++) {
+    if (event.results[i].isFinal) {
+      finalTranscript += event.results[i][0].transcript + ' ';
+    } else {
+      interimTranscript += event.results[i][0].transcript;
+    }
+  }
+
+  // Show the final transcript appended to your notes
+  // and show the interim transcript somewhere if you want live preview
+
+  notes.textContent = (notes.textContent || '') + finalTranscript;
+
+  // Optionally, you can show interim transcript elsewhere or ignore it
+  // e.g. livePreviewElement.textContent = interimTranscript;
+
+  // Save to localStorage
+  localStorage.setItem('floatingSpeechNotes', notes.textContent);
+
+  // Scroll down
+  notes.scrollTop = notes.scrollHeight;
+};
+
+
+    recognition.onerror = (e) => {
+      console.error('Speech recognition error:', e.error);
+      if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+        alert('Permission denied for microphone.');
+        if (isListening) toggleListening();
+      }
+    };
+
+    recognition.onend = () => {
+      // Automatically restart if listening
+      if (isListening) recognition.start();
+    };
+
+    function toggleListening() {
+      if (!isListening) {
+        recognition.start();
+        startBtn.textContent = 'Stop';
+        isListening = true;
+      } else {
+        recognition.stop();
+        startBtn.textContent = 'Start';
+        isListening = false;
+      }
+    }
+
+    startBtn.addEventListener('click', toggleListening);
+
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Clear all notes?')) {
+        notes.textContent = '';
+        localStorage.removeItem('floatingSpeechNotes');
+      }
+    });
+
+    closeBtn.addEventListener('click', () => {
+      window.close();
+    });
+  }
+</script>
+
+</body>
+</html>
